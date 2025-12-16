@@ -110,13 +110,13 @@
   <div class="container">
     <div id="loadingState" class="card loader-container">
       <div class="spinner"></div>
-      <p id="loadingText">กำลังตรวจสอบข้อมูล...</p>
+      <p id="loadingText">กำลังเตรียมห้องZOOM...รอสักครู่</p>
     </div>
 
     <div id="successState" class="card hidden fade-in">
       <img id="userPic" src="" alt="Profile" class="profile-img">
       <h1 id="userName">สวัสดีครับ</h1>
-      <p>บันทึกเวลาเข้าร่วมเรียบร้อยแล้ว<br>กำลังเปิด ZOOM Meeting...</p>
+      <p>ลงทะเบียนเข้าร่วมเรียบร้อยแล้ว<br>กำลังเปิด ZOOM Meeting...</p>
       <button id="btnOpenZoom" class="btn btn-primary">คลิกที่นี่หาก ZOOM ไม่เปิด</button>
     </div>
 
@@ -161,7 +161,7 @@
         return;
       }
 
-      document.getElementById('loadingText').innerText = "กำลังเชื่อมต่อฐานข้อมูล...";
+      document.getElementById('loadingText').innerText = "รอสักครู่กำลังเชื่อมสัญญาณ ZOOM...";
 
       // เพิ่ม headers: 'Content-Type': 'text/plain' 
       // เพื่อบอก Google Server ว่านี่คือข้อความธรรมดา ไม่ต้อง preflight CORS ยุ่งยาก
