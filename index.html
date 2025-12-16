@@ -37,15 +37,13 @@
       overflow-x: hidden;
     }
 
-    /* --- Container & Layout --- */
     .container {
       width: 100%;
-      max-width: 480px; /* Mobile first constrained width */
+      max-width: 480px;
       padding: 20px;
       text-align: center;
     }
 
-    /* --- Card Styling --- */
     .card {
       background: var(--card-bg);
       border-radius: var(--radius-std);
@@ -56,93 +54,53 @@
       overflow: hidden;
     }
     
-    .card:hover {
-      transform: translateY(-2px);
-    }
+    .card:hover { transform: translateY(-2px); }
 
-    /* --- Typography --- */
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: var(--primary-color);
-      margin-bottom: 12px;
-    }
+    h1 { font-size: 1.5rem; font-weight: 600; color: var(--primary-color); margin-bottom: 12px; }
+    p { font-size: 1rem; color: var(--text-light); line-height: 1.6; margin-bottom: 24px; }
 
-    p {
-      font-size: 1rem;
-      color: var(--text-light);
-      line-height: 1.6;
-      margin-bottom: 24px;
-    }
-
-    /* --- Profile Section --- */
     .profile-img {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      border: 4px solid #EFE6DD;
-      object-fit: cover;
-      margin-bottom: 16px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      width: 80px; height: 80px; border-radius: 50%;
+      border: 4px solid #EFE6DD; object-fit: cover;
+      margin-bottom: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
 
-    /* --- Buttons --- */
     .btn {
-      display: block;
-      width: 100%;
-      padding: 14px 20px;
-      border: none;
-      border-radius: 50px;
-      font-family: 'Prompt', sans-serif;
-      font-size: 1rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      margin-bottom: 12px;
-      text-decoration: none;
+      display: block; width: 100%; padding: 14px 20px;
+      border: none; border-radius: 50px;
+      font-family: 'Prompt', sans-serif; font-size: 1rem; font-weight: 500;
+      cursor: pointer; transition: all 0.2s ease;
+      margin-bottom: 12px; text-decoration: none;
     }
 
     .btn-primary {
       background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-      color: white;
-      box-shadow: 0 4px 15px rgba(111, 78, 55, 0.3);
+      color: white; box-shadow: 0 4px 15px rgba(111, 78, 55, 0.3);
     }
-
     .btn-primary:active { transform: scale(0.98); }
 
     .btn-outline {
-      background: transparent;
-      border: 2px solid var(--secondary-color);
+      background: transparent; border: 2px solid var(--secondary-color);
       color: var(--secondary-color);
     }
-
     .btn-outline:active { background: rgba(166, 124, 82, 0.1); }
 
-    /* --- Loading Animation (Coffee Ripple) --- */
     .loader-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 200px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;
     }
 
     .spinner {
-      width: 50px;
-      height: 50px;
+      width: 50px; height: 50px;
       border: 4px solid rgba(111, 78, 55, 0.1);
       border-left-color: var(--primary-color);
       border-radius: 50%;
       animation: spin 1s linear infinite;
       margin-bottom: 20px;
     }
-
     @keyframes spin { 100% { transform: rotate(360deg); } }
 
-    /* --- Utility Classes --- */
     .hidden { display: none !important; }
     .fade-in { animation: fadeIn 0.5s ease-in; }
-
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
   </style>
@@ -150,14 +108,11 @@
 <body>
 
   <div class="container">
-    
-    <!-- State 1: Loading -->
     <div id="loadingState" class="card loader-container">
       <div class="spinner"></div>
       <p id="loadingText">กำลังตรวจสอบข้อมูล...</p>
     </div>
 
-    <!-- State 2: User Found & Checkin Success -->
     <div id="successState" class="card hidden fade-in">
       <img id="userPic" src="" alt="Profile" class="profile-img">
       <h1 id="userName">สวัสดีครับ</h1>
@@ -165,23 +120,23 @@
       <button id="btnOpenZoom" class="btn btn-primary">คลิกที่นี่หาก ZOOM ไม่เปิด</button>
     </div>
 
-    <!-- State 3: User Not Found -->
     <div id="registerState" class="card hidden fade-in">
       <h1>ยังไม่ได้ลงทะเบียน</h1>
       <p>คุณยังไม่ได้ลงทะเบียนเพื่อจับฉลาก<br>ต้องการลงทะเบียนหรือไม่?</p>
-      
       <button id="btnRegister" class="btn btn-primary">ลงทะเบียน (จับฉลาก)</button>
       <button id="btnNoRegister" class="btn btn-outline">ไม่ประสงค์จับฉลาก</button>
     </div>
-
   </div>
 
   <script>
-    // --- Configuration ---
-    const LIFF_ID = '2008560135-RlOW0At4'; // ใส่ LIFF ID ที่ถูกต้องตรงนี้
+    // **********************************************
+    // 1. ตั้งค่า LIFF ID และ Web App URL ตรงนี้
+    // **********************************************
+    const LIFF_ID = '2008560135-RlOW0At4'; 
+    const GAS_EXEC_URL = 'AKfycbxTTOnhmwetGEtfePkAgDQMLsWuzk3uWVH67B5_HuVVOHhVxrQONTdVKGLnvlHhgkaVnQ'; // <--- เปลี่ยนเป็น URL ของคุณที่ได้จากการ Deploy (ลงท้ายด้วย /exec)
+
     let userProfile = null;
 
-    // --- Main Logic ---
     async function main() {
       try {
         await liff.init({ liffId: LIFF_ID });
@@ -192,57 +147,57 @@
         }
 
         userProfile = await liff.getProfile();
-        
-        // ส่งข้อมูลไปตรวจสอบที่ Backend (Google Apps Script)
-        runGoogleScript(userProfile);
+        // ส่ง Action 'checkin' ไปยัง Backend
+        callBackend('checkin', userProfile);
 
       } catch (err) {
-        showError('เกิดข้อผิดพลาดในการเชื่อมต่อ LINE: ' + err.message);
+        showError('เกิดข้อผิดพลาด LIFF: ' + err.message);
       }
     }
 
-    function runGoogleScript(profile) {
+    // ฟังก์ชันยิง API ไปหา Google Apps Script แทน google.script.run
+    function callBackend(action, profile) {
+      if (GAS_EXEC_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
+        showError('กรุณาใส่ GAS_EXEC_URL ในโค้ด index.html');
+        return;
+      }
+
       document.getElementById('loadingText').innerText = "กำลังเชื่อมต่อฐานข้อมูล...";
-      
-      google.script.run
-        .withSuccessHandler(handleResponse)
-        .withFailureHandler(error => showError(error.message))
-        .handleCheckInProcess({
-          userId: profile.userId,
-          displayName: profile.displayName,
-          pictureUrl: profile.pictureUrl,
-          statusMessage: profile.statusMessage
-        });
+
+      // ใช้ fetch แบบ POST (text/plain hack เพื่อหลบ CORS ในบางกรณี แต่ปกติ GAS รองรับ)
+      fetch(GAS_EXEC_URL, {
+        method: 'POST',
+        // ส่งเป็น stringify JSON
+        body: JSON.stringify({ action: action, profile: profile })
+      })
+      .then(response => response.json()) // แปลงผลลัพธ์ที่ได้กลับมาเป็น JSON
+      .then(res => {
+        handleResponse(res);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        showError('ไม่สามารถเชื่อมต่อ Server ได้: ' + error.message);
+      });
     }
 
     function handleResponse(res) {
       hideAll();
-      
       if (res.status === 'success') {
-        // กรณี: มีข้อมูลอยู่แล้ว หรือ บันทึกใหม่เรียบร้อย
         showSuccess(res.zoomUrl, res.message);
       } else if (res.status === 'not_found') {
-        // กรณี: ไม่พบข้อมูล ให้เลือก
         showRegisterOption(res.regisUrl);
+      } else {
+        showError('Error: ' + (res.message || 'Unknown error'));
       }
     }
-
-    // --- UI Handlers ---
 
     function showSuccess(zoomUrl, msg) {
       const state = document.getElementById('successState');
       state.classList.remove('hidden');
-      
-      // แสดงรูปและชื่อ
       document.getElementById('userPic').src = userProfile.pictureUrl || 'https://via.placeholder.com/80';
       document.getElementById('userName').innerText = 'สวัสดี ' + userProfile.displayName;
       
-      // Auto Redirect logic for iPhone/Android
-      setTimeout(() => {
-        openZoom(zoomUrl);
-      }, 1500); // รอ 1.5 วิ ให้เห็นข้อความก่อน
-
-      // ผูกปุ่มเผื่อ Auto Redirect ไม่ทำงาน
+      setTimeout(() => { openZoom(zoomUrl); }, 1500);
       document.getElementById('btnOpenZoom').onclick = () => openZoom(zoomUrl);
     }
 
@@ -250,45 +205,24 @@
       const state = document.getElementById('registerState');
       state.classList.remove('hidden');
 
-      // ปุ่มลงทะเบียน: เปิด LIFF ลงทะเบียน
       document.getElementById('btnRegister').onclick = () => {
-        // ใช้ liff.openWindow หรือ window.location ไปยัง LIFF ลงทะเบียน
-        liff.openWindow({
-            url: regisUrl,
-            external: false // เปิดใน LINE
-        });
+        liff.openWindow({ url: regisUrl, external: false });
       };
 
-      // ปุ่มไม่ลงทะเบียน: บันทึกข้อมูลเท่าที่มี แล้วไป ZOOM
       document.getElementById('btnNoRegister').onclick = () => {
         hideAll();
         document.getElementById('loadingState').classList.remove('hidden');
-        document.getElementById('loadingText').innerText = "กำลังบันทึกข้อมูลเข้าร่วม...";
-        
-        google.script.run
-          .withSuccessHandler((res) => showSuccess(res.zoomUrl, res.message))
-          .withFailureHandler(error => showError(error))
-          .handleNoDrawRegistration({
-            userId: userProfile.userId,
-            displayName: userProfile.displayName,
-            pictureUrl: userProfile.pictureUrl,
-            statusMessage: userProfile.statusMessage
-          });
+        callBackend('nodraw', userProfile); // เรียก Action 'nodraw'
       };
     }
 
     function openZoom(url) {
-      // เทคนิคสำหรับ iPhone/Android ใน LIFF
-      // การใช้ external: true จะ force ให้เปิด browser จริง ซึ่งรองรับ Zoom Deep Link ได้ดีกว่า
-      liff.openWindow({
-        url: url,
-        external: true
-      });
+      liff.openWindow({ url: url, external: true });
     }
 
     function showError(msg) {
-      alert(msg); // หรือสร้าง UI error ที่สวยกว่านี้
-      document.getElementById('loadingText').innerText = "Error: " + msg;
+      alert(msg);
+      document.getElementById('loadingText').innerText = msg;
     }
 
     function hideAll() {
@@ -297,7 +231,6 @@
       document.getElementById('registerState').classList.add('hidden');
     }
 
-    // Start App
     main();
 
   </script>
