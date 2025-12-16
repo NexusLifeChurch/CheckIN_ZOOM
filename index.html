@@ -133,6 +133,7 @@
     // 1. ตั้งค่า LIFF ID และ Web App URL ตรงนี้
     // **********************************************
     const LIFF_ID = '2008560135-RlOW0At4'; 
+    // ใช้ URL ที่คุณให้มา
     const GAS_EXEC_URL = 'https://script.google.com/macros/s/AKfycbxTTOnhmwetGEtfePkAgDQMLsWuzk3uWVH67B5_HuVVOHhVxrQONTdVKGLnvlHhgkaVnQ/exec'; 
 
     let userProfile = null;
@@ -147,7 +148,6 @@
         }
 
         userProfile = await liff.getProfile();
-        // ส่ง Action 'checkin' ไปยัง Backend
         callBackend('checkin', userProfile);
 
       } catch (err) {
@@ -155,28 +155,41 @@
       }
     }
 
-    // ฟังก์ชันยิง API ไปหา Google Apps Script แทน google.script.run
     function callBackend(action, profile) {
-      if (!GAS_EXEC_URL || GAS_EXEC_URL.includes('YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL')) {
-        showError('กรุณาใส่ GAS_EXEC_URL ในโค้ด index.html');
+      if (!GAS_EXEC_URL) {
+        showError('URL ของ Web App ไม่ถูกต้อง');
         return;
       }
 
       document.getElementById('loadingText').innerText = "กำลังเชื่อมต่อฐานข้อมูล...";
 
-      // ใช้ fetch แบบ POST (text/plain hack เพื่อหลบ CORS ในบางกรณี แต่ปกติ GAS รองรับ)
+      // เพิ่ม headers: 'Content-Type': 'text/plain' 
+      // เพื่อบอก Google Server ว่านี่คือข้อความธรรมดา ไม่ต้อง preflight CORS ยุ่งยาก
       fetch(GAS_EXEC_URL, {
         method: 'POST',
-        // ส่งเป็น stringify JSON
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8', 
+        },
         body: JSON.stringify({ action: action, profile: profile })
       })
-      .then(response => response.json()) // แปลงผลลัพธ์ที่ได้กลับมาเป็น JSON
+      .then(response => {
+        // เช็คก่อนว่า Response OK ไหม
+        if (!response.ok) {
+           throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json();
+      }) 
       .then(res => {
         handleResponse(res);
       })
       .catch(error => {
         console.error('Error:', error);
-        showError('ไม่สามารถเชื่อมต่อ Server ได้: ' + error.message);
+        // แสดงข้อความแนะนำหากเกิด error นี้
+        if (error.message.includes("Unexpected token") || error.message.includes("<")) {
+           showError('เชื่อมต่อ Server ไม่ได้ (สิทธิ์การเข้าถึงผิดพลาด) กรุณาตรวจสอบว่าตั้งค่า Web App เป็น "Anyone" (ทุกคน) แล้วหรือไม่');
+        } else {
+           showError('Error: ' + error.message);
+        }
       });
     }
 
@@ -187,7 +200,7 @@
       } else if (res.status === 'not_found') {
         showRegisterOption(res.regisUrl);
       } else {
-        showError('Error: ' + (res.message || 'Unknown error'));
+        showError('System Error: ' + (res.message || 'Unknown error'));
       }
     }
 
@@ -212,7 +225,7 @@
       document.getElementById('btnNoRegister').onclick = () => {
         hideAll();
         document.getElementById('loadingState').classList.remove('hidden');
-        callBackend('nodraw', userProfile); // เรียก Action 'nodraw'
+        callBackend('nodraw', userProfile); 
       };
     }
 
@@ -221,8 +234,10 @@
     }
 
     function showError(msg) {
+      // ใช้ alert เพื่อให้เห็นชัดเจนในมือถือ
       alert(msg);
       document.getElementById('loadingText').innerText = msg;
+      document.getElementById('loadingText').style.color = 'red';
     }
 
     function hideAll() {
