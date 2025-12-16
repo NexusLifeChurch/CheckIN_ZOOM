@@ -254,46 +254,6 @@
         const URL_REGISTER_LIFF = 'https://liff.line.me/2008560135-QlLx9W3c';
         const URL_ZOOM = 'https://us05web.zoom.us/j/83550129208?pwd=9zedCWiXUGW8GaX4zHQSYO8qxaFLRb.1';
 
-        // --- Mocking for Local Testing / Preview ---
-        // ฟังก์ชันจำลอง Environment เมื่อรันนอก Google Apps Script (เช่น ใน Preview)
-        function initMockEnvironment() {
-            if (typeof google === 'undefined') {
-                console.log("Mocking google.script.run for preview mode");
-                window.google = {
-                    script: {
-                        run: {
-                            withSuccessHandler: function(func) { 
-                                this.successHandler = func; 
-                                return this; 
-                            },
-                            withFailureHandler: function(func) { 
-                                this.failureHandler = func; 
-                                return this; 
-                            },
-                            handleUserCheckIn: function(data) {
-                                console.log("[Mock] handleUserCheckIn:", data);
-                                setTimeout(() => {
-                                    // เปลี่ยน status เป็น 'success' เพื่อลองเทสแบบผ่าน
-                                    // หรือ 'not_found' เพื่อลองเทสแบบไม่เจอข้อมูล
-                                    const mockResponse = { status: 'not_found', message: 'Mock: Not Found (Simulation)' }; 
-                                    if (this.successHandler) this.successHandler(mockResponse);
-                                }, 1500);
-                            },
-                            handleNoRegister: function(data) {
-                                console.log("[Mock] handleNoRegister:", data);
-                                setTimeout(() => {
-                                    if (this.successHandler) this.successHandler({ status: 'success', message: 'Mock: Success' });
-                                }, 1500);
-                            }
-                        }
-                    }
-                };
-            }
-        }
-        
-        // เรียกใช้งาน Mock ทันทีเมื่อเริ่มโหลด
-        initMockEnvironment();
-
         // --- Main Logic ---
         
         async function main() {
@@ -316,22 +276,9 @@
                 callBackendCheckIn(profile);
 
             } catch (err) {
-                // กรณี LIFF Error (เช่น เปิดใน Preview/PC ทั่วไปที่ไม่ได้ต่อ LIFF จริง)
-                console.warn('LIFF Init failed or Simulator mode:', err);
-                
-                // Fallback: ใช้ข้อมูลจำลองเพื่อให้หน้าเว็บแสดงผลได้
-                const mockProfile = {
-                    userId: 'mock_user_01',
-                    displayName: 'Guest (Preview)',
-                    pictureUrl: '',
-                    statusMessage: 'Testing Mode'
-                };
-                
-                document.getElementById('userPicture').src = 'https://via.placeholder.com/80';
-                document.getElementById('welcomeText').innerText = `สวัสดี, ${mockProfile.displayName}`;
-                
-                // เรียก Backend (ซึ่งจะไปเรียก Mock GAS ต่อ)
-                callBackendCheckIn(mockProfile);
+                // แสดง Error ของจริง (ไม่ใช้ข้อมูลจำลองแล้ว)
+                console.error('LIFF Init failed:', err);
+                showError('ไม่สามารถโหลด LIFF ได้ (กรุณาเปิดผ่านแอป LINE): ' + err.message);
             }
         }
 
