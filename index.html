@@ -133,7 +133,7 @@
     // 1. ตั้งค่า LIFF ID และ Web App URL ตรงนี้
     // **********************************************
     const LIFF_ID = '2008560135-RlOW0At4'; 
-    const GAS_EXEC_URL = 'AKfycbxTTOnhmwetGEtfePkAgDQMLsWuzk3uWVH67B5_HuVVOHhVxrQONTdVKGLnvlHhgkaVnQ'; // <--- เปลี่ยนเป็น URL ของคุณที่ได้จากการ Deploy (ลงท้ายด้วย /exec)
+    const GAS_EXEC_URL = 'https://script.google.com/macros/s/AKfycbxTTOnhmwetGEtfePkAgDQMLsWuzk3uWVH67B5_HuVVOHhVxrQONTdVKGLnvlHhgkaVnQ/exec'; 
 
     let userProfile = null;
 
@@ -157,7 +157,7 @@
 
     // ฟังก์ชันยิง API ไปหา Google Apps Script แทน google.script.run
     function callBackend(action, profile) {
-      if (GAS_EXEC_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
+      if (!GAS_EXEC_URL || GAS_EXEC_URL.includes('YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL')) {
         showError('กรุณาใส่ GAS_EXEC_URL ในโค้ด index.html');
         return;
       }
