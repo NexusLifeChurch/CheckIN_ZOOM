@@ -173,20 +173,26 @@
         body: JSON.stringify({ action: action, profile: profile })
       })
       .then(response => {
-        // เช็คก่อนว่า Response OK ไหม
-        if (!response.ok) {
-           throw new Error('Network response was not ok: ' + response.status);
-        }
-        return response.json();
+        // เปลี่ยนจาก response.json() เป็น response.text() ก่อน เพื่อดักจับ Error ที่เป็น HTML
+        return response.text();
       }) 
-      .then(res => {
-        handleResponse(res);
+      .then(text => {
+        try {
+            // พยายามแปลง Text เป็น JSON
+            const res = JSON.parse(text);
+            handleResponse(res);
+        } catch (e) {
+            // ถ้าแปลงไม่ได้ แสดงว่า Server ส่ง HTML มา (Error)
+            console.error("Server Response:", text);
+            // ตัดข้อความมาแสดงแค่สั้นๆ เพื่อให้รู้ว่าคือหน้าอะไร
+            const errorSnippet = text.substring(0, 200).replace(/</g, "&lt;");
+            throw new Error("Server ส่งค่ากลับมาไม่ใช่ JSON (อาจเป็นหน้า Login หรือ Error): <br><small>" + errorSnippet + "</small>");
+        }
       })
       .catch(error => {
         console.error('Error:', error);
-        // แสดงข้อความแนะนำหากเกิด error นี้
-        if (error.message.includes("Unexpected token") || error.message.includes("<")) {
-           showError('เชื่อมต่อ Server ไม่ได้ (สิทธิ์การเข้าถึงผิดพลาด) กรุณาตรวจสอบว่าตั้งค่า Web App เป็น "Anyone" (ทุกคน) แล้วหรือไม่');
+        if (error.message.includes("Login") || error.message.includes("sign in")) {
+           showError('เชื่อมต่อไม่ได้: ติดหน้า Login ของ Google (กรุณาตั้งค่า Web App เป็น "Anyone" และ Deploy แบบ "New Version")');
         } else {
            showError('Error: ' + error.message);
         }
@@ -234,10 +240,16 @@
     }
 
     function showError(msg) {
-      // ใช้ alert เพื่อให้เห็นชัดเจนในมือถือ
-      alert(msg);
-      document.getElementById('loadingText').innerText = msg;
-      document.getElementById('loadingText').style.color = 'red';
+      // ใช้ innerHTML เพื่อรองรับ tag <br>
+      const loader = document.getElementById('loadingText');
+      loader.innerHTML = msg;
+      loader.style.color = 'red';
+      
+      // ลบ spinner ออกเพื่อให้เห็นข้อความชัดเจน
+      const spinner = document.querySelector('.spinner');
+      if(spinner) spinner.style.display = 'none';
+      
+      alert(msg.replace(/<br>/g, "\n").replace(/<small>.*<\/small>/, "")); // Alert แบบย่อ
     }
 
     function hideAll() {
