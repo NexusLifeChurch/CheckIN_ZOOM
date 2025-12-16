@@ -1,416 +1,135 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>CheckIN ZOOM</title>
-    
-    <!-- Google Fonts: Prompt -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
-    
-    <!-- SweetAlert2 for beautiful Modals -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
-    <!-- LINE LIFF SDK -->
-    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+// --- ตั้งค่า ID ของ Google Sheet และชื่อ Sheet ---
+const SPREADSHEET_ID = '1vg66sWHwsYWZf0zgso_E_WKx-ute4VCs4HxvcBMX5uI'; // ID จากลิงก์ที่คุณให้มา
+const SHEET_CHECKIN = 'CheckIN';
+const SHEET_LINEID = 'LineID';
 
-    <style>
-        /* --- Coffee Tone Variables --- */
-        :root {
-            --coffee-dark: #4e342e;
-            --coffee-medium: #8d6e63;
-            --coffee-light: #d7ccc8;
-            --coffee-cream: #fbe9e7;
-            --coffee-gold: #bcaaa4;
-            --bg-gradient-start: #efebe9;
-            --bg-gradient-end: #d7ccc8;
-            --text-main: #3e2723;
-            --white: #ffffff;
-            --radius-main: 16px;
-            --shadow-soft: 0 8px 30px rgba(78, 52, 46, 0.15);
-        }
+// ลิงก์ ZOOM และ LIFF ลงทะเบียน
+const ZOOM_LINK = 'https://us05web.zoom.us/j/83550129208?pwd=9zedCWiXUGW8GaX4zHQSYO8qxaFLRb.1';
+const REGIS_LIFF_URL = 'https://liff.line.me/2008560135-QlLx9W3c';
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Prompt', sans-serif;
-        }
+function doGet() {
+  return HtmlService.createTemplateFromFile('index')
+    .evaluate()
+    .setTitle('CheckIN ZOOM System')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
 
-        body {
-            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: var(--text-main);
-            padding: 20px;
-        }
+/**
+ * ฟังก์ชันหลัก: ตรวจสอบสถานะ User และดำเนินการ Check-in
+ */
+function handleCheckInProcess(liffProfile) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheetLineId = ss.getSheetByName(SHEET_LINEID);
+  
+  // 1. ค้นหา UserID ใน Sheet LineID
+  const dataLineId = sheetLineId.getDataRange().getValues();
+  // สมมติว่า Line UserID อยู่คอลัมน์ B (Index 1) เริ่มค้นหาจาก row 2
+  let foundRow = -1;
+  let userData = null;
 
-        /* --- Main Container --- */
-        .app-container {
-            background: var(--white);
-            width: 100%;
-            max-width: 480px; /* Mobile Friendly Max Width */
-            border-radius: var(--radius-main);
-            box-shadow: var(--shadow-soft);
-            padding: 40px 30px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            transition: all 0.3s ease;
-        }
+  for (let i = 1; i < dataLineId.length; i++) {
+    if (dataLineId[i][1] == liffProfile.userId) {
+      foundRow = i;
+      userData = dataLineId[i];
+      break;
+    }
+  }
 
-        /* --- Header --- */
-        h1 {
-            font-weight: 600;
-            font-size: 1.8rem;
-            color: var(--coffee-dark);
-            margin-bottom: 10px;
-        }
+  // กรณี: เจอข้อมูล (ลงทะเบียนแล้ว)
+  if (foundRow !== -1) {
+    recordToCheckIn(userData, liffProfile.userId);
+    return { status: 'success', zoomUrl: ZOOM_LINK, message: 'เช็คชื่อสำเร็จ กำลังนำท่านเข้าสู่ ZOOM' };
+  } 
+  
+  // กรณี: ไม่เจอข้อมูล (ยังไม่ลงทะเบียน)
+  else {
+    return { status: 'not_found', regisUrl: REGIS_LIFF_URL };
+  }
+}
 
-        p.subtitle {
-            font-size: 1rem;
-            color: var(--coffee-medium);
-            margin-bottom: 20px;
-        }
+/**
+ * ฟังก์ชัน: กรณีไม่ประสงค์ลงทะเบียน (No Draw)
+ * บันทึกลง Sheet LineID แบบข้อมูลเท่าที่มี แล้ว Check-in เลย
+ */
+function handleNoDrawRegistration(liffProfile) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheetLineId = ss.getSheetByName(SHEET_LINEID);
 
-        /* --- Loading Animation (Coffee Spinner) --- */
-        .loader-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 200px;
-        }
+  const timestamp = new Date();
+  const nickname = "(ไม่ประสงค์จับฉลาก)";
+  const realname = ""; // ไม่มีข้อมูล
+  const careGroup = "";
+  const referrer = "";
+  const phone = "";
 
-        .coffee-cup {
-            width: 60px;
-            height: 40px;
-            border: 4px solid var(--coffee-dark);
-            border-radius: 0 0 30px 30px;
-            position: relative;
-            margin-bottom: 20px;
-            background: var(--coffee-cream);
-        }
-        .coffee-cup::after {
-            content: '';
-            position: absolute;
-            top: 5px;
-            right: -20px;
-            width: 15px;
-            height: 20px;
-            border: 4px solid var(--coffee-dark);
-            border-radius: 0 10px 10px 0;
-        }
-        .steam {
-            width: 8px;
-            height: 20px;
-            background: var(--coffee-medium);
-            border-radius: 10px;
-            position: absolute;
-            top: -30px;
-            opacity: 0;
-            animation: steam 2s infinite;
-        }
-        .steam:nth-child(1) { left: 10px; animation-delay: 0s; }
-        .steam:nth-child(2) { left: 25px; animation-delay: 0.5s; }
-        .steam:nth-child(3) { left: 40px; animation-delay: 1s; }
+  // เรียงข้อมูลตามคอลัมน์ Sheet LineID:
+  // Timestamp | UserID | DisplayName | Picture | StatusMsg | ชื่อเล่น | ชื่อจริง | กลุ่มแคร์ | ผู้แนะนำ | เบอร์โทร
+  const newRow = [
+    timestamp,
+    liffProfile.userId,
+    liffProfile.displayName,
+    liffProfile.pictureUrl,
+    liffProfile.statusMessage,
+    nickname,
+    realname,
+    careGroup,
+    referrer,
+    phone
+  ];
 
-        @keyframes steam {
-            0% { transform: translateY(0); opacity: 0; }
-            50% { opacity: 0.6; }
-            100% { transform: translateY(-20px); opacity: 0; }
-        }
+  sheetLineId.appendRow(newRow);
 
-        .loading-text {
-            color: var(--coffee-medium);
-            font-size: 0.9rem;
-            animation: pulse 1.5s infinite;
-        }
+  // หลังจากบันทึกแล้ว ให้ทำการ CheckIN ต่อทันที
+  // เราส่ง newRow ไปเพื่อให้ฟังก์ชัน recordToCheckIn ใช้งานได้เลย
+  recordToCheckIn(newRow, liffProfile.userId);
 
-        @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
-        }
+  return { status: 'success', zoomUrl: ZOOM_LINK, message: 'บันทึกข้อมูลสำเร็จ กำลังนำท่านเข้าสู่ ZOOM' };
+}
 
-        /* --- Buttons --- */
-        .btn {
-            background: linear-gradient(90deg, var(--coffee-medium), var(--coffee-dark));
-            color: white;
-            border: none;
-            padding: 14px 24px;
-            border-radius: 50px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            width: 100%;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 10px rgba(78, 52, 46, 0.2);
-            text-decoration: none;
-            display: inline-block;
-        }
+/**
+ * ฟังก์ชันช่วย: บันทึกลง Sheet CheckIN
+ * dataLineIdRow คือ array ข้อมูลของ user คนนั้นจาก Sheet LineID
+ */
+function recordToCheckIn(dataLineIdRow, userId) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheetCheckIn = ss.getSheetByName(SHEET_CHECKIN);
 
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(78, 52, 46, 0.3);
-        }
+  // Map ข้อมูลจาก Sheet LineID (Array Index)
+  // Index: 0=Time, 1=UserID, 2=Display, 3=Pic, 4=Status, 5=Nick, 6=Real, 7=Care, 8=Referrer, 9=Phone
+  
+  const timestamp = new Date();
+  const actName = "Caremily";
+  const category = "Care";
+  const zoomName = "Luv Christmas";
+  
+  // Details ="LineID.Display Name"+"LineID.ผู้แนะนำ"+"LineID.เบอร์โทร"
+  const displayName = dataLineIdRow[2] || "";
+  const referrer = dataLineIdRow[8] || "";
+  const phone = dataLineIdRow[9] || "";
+  const details = `${displayName} ${referrer} ${phone}`.trim();
 
-        .btn:active {
-            transform: translateY(1px);
-        }
+  // M_ID ="LineID.ชื่อเล่น"+”-”+"LindID.ชื่อจริง"
+  const nickName = dataLineIdRow[5] || "";
+  const realName = dataLineIdRow[6] || "";
+  const mId = `${nickName}-${realName}`;
 
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--coffee-medium);
-            color: var(--coffee-medium);
-            margin-top: 10px;
-        }
-        .btn-outline:hover {
-            background: var(--coffee-cream);
-            color: var(--coffee-dark);
-        }
+  const careName = dataLineIdRow[7] || ""; // กลุ่มแคร์
+  const memberStatus = "";
 
-        /* --- Status Messages --- */
-        .status-message {
-            display: none;
-            flex-direction: column;
-            gap: 15px;
-        }
-        
-        .profile-img {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            border: 4px solid var(--coffee-cream);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            margin: 0 auto;
-            object-fit: cover;
-        }
+  // เรียงข้อมูลตามคอลัมน์ Sheet CheckIN
+  // Timestamp | LINE ID | Act_Name | Category | ZOOM_name | Details | M_ID | Name | CareName | MemberStatus
+  const checkInRow = [
+    timestamp,
+    userId,
+    actName,
+    category,
+    zoomName,
+    details,
+    mId,
+    displayName, // Name
+    careName,
+    memberStatus
+  ];
 
-        /* --- SweetAlert Customization --- */
-        .swal2-popup {
-            font-family: 'Prompt', sans-serif !important;
-            border-radius: 16px !important;
-        }
-        .swal2-confirm {
-            background: var(--coffee-dark) !important;
-        }
-        .swal2-cancel {
-            background: #9e9e9e !important;
-        }
-
-        /* --- Footer --- */
-        .footer {
-            margin-top: 30px;
-            font-size: 0.75rem;
-            color: #bcaaa4;
-        }
-
-    </style>
-</head>
-<body>
-
-    <div class="app-container">
-        <!-- Section: Loading -->
-        <div id="loadingSection" class="loader-container">
-            <div class="coffee-cup">
-                <div class="steam"></div>
-                <div class="steam"></div>
-                <div class="steam"></div>
-            </div>
-            <div class="loading-text">กำลังตรวจสอบข้อมูล...</div>
-        </div>
-
-        <!-- Section: Content (Hidden initially) -->
-        <div id="contentSection" class="status-message">
-            <img id="userPicture" class="profile-img" src="" alt="Profile">
-            <div>
-                <h1 id="welcomeText">สวัสดีครับ</h1>
-                <p id="statusText" class="subtitle">กำลังดำเนินการเข้าสู่ระบบ ZOOM</p>
-            </div>
-            <!-- ปุ่ม Manual Redirect กรณี Auto ไม่ทำงาน -->
-            <button id="btnZoom" class="btn" style="display:none;" onclick="openZoom()">
-                <i class="fas fa-video"></i> เข้าสู่ ZOOM Meeting
-            </button>
-        </div>
-        
-        <div class="footer">
-            Caremily System © 2024
-        </div>
-    </div>
-
-    <script>
-        // --- Configuration ---
-        // ใส่ LIFF ID ของ WebApp นี้ (index.html) ที่คุณสร้าง
-        const LIFF_ID = '2008560135-RlOW0At4'; 
-        
-        const URL_REGISTER_LIFF = 'https://liff.line.me/2008560135-QlLx9W3c';
-        const URL_ZOOM = 'https://us05web.zoom.us/j/83550129208?pwd=9zedCWiXUGW8GaX4zHQSYO8qxaFLRb.1';
-
-        // --- Main Logic ---
-        
-        async function main() {
-            try {
-                // พยายาม Init LIFF
-                await liff.init({ liffId: LIFF_ID });
-                
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                    return;
-                }
-
-                const profile = await liff.getProfile();
-                
-                // แสดงรูป Profile
-                document.getElementById('userPicture').src = profile.pictureUrl || 'https://via.placeholder.com/80';
-                document.getElementById('welcomeText').innerText = `สวัสดี, ${profile.displayName}`;
-
-                // เรียก GAS Backend
-                callBackendCheckIn(profile);
-
-            } catch (err) {
-                // แสดง Error ของจริง (ไม่ใช้ข้อมูลจำลองแล้ว)
-                console.error('LIFF Init failed:', err);
-                showError('ไม่สามารถโหลด LIFF ได้ (กรุณาเปิดผ่านแอป LINE): ' + err.message);
-            }
-        }
-
-        function callBackendCheckIn(profile) {
-            // ส่งข้อมูลไปหา Google Apps Script
-            google.script.run
-                .withSuccessHandler(function(response) {
-                    handleResponse(response, profile);
-                })
-                .withFailureHandler(function(err) {
-                    showError('Server Error: ' + err.message);
-                })
-                .handleUserCheckIn({
-                    userId: profile.userId,
-                    displayName: profile.displayName,
-                    pictureUrl: profile.pictureUrl,
-                    statusMessage: profile.statusMessage
-                });
-        }
-
-        function handleResponse(response, profile) {
-            hideLoading();
-            const contentDiv = document.getElementById('contentSection');
-            contentDiv.style.display = 'flex';
-
-            if (response.status === 'success') {
-                // กรณี: เจอข้อมูลแล้ว (ลงทะเบียนแล้ว) หรือ บันทึก No-Reg แล้ว
-                document.getElementById('statusText').innerText = "เช็คชื่อเรียบร้อยแล้ว กำลังเปิด ZOOM...";
-                autoRedirectZoom();
-            } else if (response.status === 'not_found') {
-                // กรณี: ไม่พบข้อมูล (ยังไม่ลงทะเบียน)
-                askToRegister(profile);
-            }
-        }
-
-        // ฟังก์ชันถาม User ว่าจะลงทะเบียนไหม
-        function askToRegister(profile) {
-            Swal.fire({
-                title: 'ยังไม่ลงทะเบียน',
-                text: "คุณยังไม่ได้ลงทะเบียนเพื่อจับฉลาก ต้องการลงทะเบียนหรือไม่?",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'ลงทะเบียน',
-                cancelButtonText: 'ไม่ต้องการ',
-                confirmButtonColor: '#8d6e63',
-                cancelButtonColor: '#9e9e9e',
-                reverseButtons: true
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // เลือก "ลงทะเบียน" -> เปิด LIFF ลงทะเบียน
-                    liff.openWindow({
-                        url: URL_REGISTER_LIFF,
-                        external: false // เปิดใน LINE ได้เลย
-                    });
-                    liff.closeWindow(); // ปิดหน้านี้
-                } else {
-                    // เลือก "ไม่ต้องการ" -> บันทึกข้อมูลแล้วไป Zoom
-                    processNoRegister(profile);
-                }
-            });
-        }
-
-        // ฟังก์ชันบันทึกคนที่ไม่ต้องการลงทะเบียน
-        function processNoRegister(profile) {
-            showLoading("กำลังบันทึกข้อมูล...");
-            google.script.run
-                .withSuccessHandler(function(res) {
-                    if(res.status === 'success'){
-                        hideLoading();
-                        document.getElementById('contentSection').style.display = 'flex';
-                        document.getElementById('statusText').innerText = "บันทึกเรียบร้อย กำลังเปิด ZOOM...";
-                        autoRedirectZoom();
-                    }
-                })
-                .handleNoRegister({
-                    userId: profile.userId,
-                    displayName: profile.displayName,
-                    pictureUrl: profile.pictureUrl,
-                    statusMessage: profile.statusMessage
-                });
-        }
-
-        // ฟังก์ชันเปิด ZOOM (รองรับ iPhone)
-        function openZoom() {
-            // การใช้ liff.openWindow พร้อม external: true สำคัญมากสำหรับ iPhone
-            // เพื่อให้เปิด Zoom App หรือ Safari แทน Line Browser
-            // ตรวจสอบว่ามี liff object จริงหรือไม่ (ในโหมด Preview อาจจะไม่มี)
-            if (liff && liff.openWindow) {
-                liff.openWindow({
-                    url: URL_ZOOM,
-                    external: true 
-                });
-            } else {
-                // Fallback สำหรับ Preview/PC ทั่วไป
-                window.open(URL_ZOOM, '_blank');
-            }
-            
-            // แสดงปุ่มค้างไว้เผื่อ Popup Block
-            document.getElementById('btnZoom').style.display = 'inline-block';
-            document.getElementById('statusText').innerText = "หาก ZOOM ไม่เปิดขึ้นอัตโนมัติ กรุณากดปุ่มด้านล่าง";
-        }
-        
-        function autoRedirectZoom() {
-            // รอ 1.5 วินาทีเพื่อให้ User อ่าน Status แล้วค่อยเปิด Zoom
-            setTimeout(() => {
-                openZoom();
-            }, 1500);
-        }
-
-        // Helper UI Functions
-        function showLoading(text) {
-            document.getElementById('loadingSection').style.display = 'flex';
-            document.getElementById('contentSection').style.display = 'none';
-            if(text) document.querySelector('.loading-text').innerText = text;
-        }
-
-        function hideLoading() {
-            document.getElementById('loadingSection').style.display = 'none';
-        }
-
-        function showError(msg) {
-            hideLoading();
-            Swal.fire({
-                icon: 'error',
-                title: 'เกิดข้อผิดพลาด',
-                text: msg
-            });
-        }
-
-        // Start App
-        window.onload = main;
-
-    </script>
-</body>
-</html>
+  sheetCheckIn.appendRow(checkInRow);
+}
