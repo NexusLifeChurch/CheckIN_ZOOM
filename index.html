@@ -316,6 +316,7 @@
                 });
 
                 const data = await response.json();
+                console.log("Server Response:", data); // Debug log
 
                 if (data.status === 'success') {
                     dom.registerState.classList.add('hidden');
@@ -327,12 +328,14 @@
                         launchZoom();
                     }, 1500);
                 } else {
-                    throw new Error("Server response not success");
+                    // Show the actual message from server
+                    throw new Error(data.message || "Server response not success (Unknown Error)");
                 }
 
             } catch (error) {
                 console.error(error);
-                alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล: " + error.message + "\nกรุณาลองใหม่อีกครั้ง");
+                // Alert with specific error message for easier debugging
+                alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล:\n" + error.message + "\n\nกรุณาลองใหม่อีกครั้ง");
                 setLoadingButton(false);
             }
         }
