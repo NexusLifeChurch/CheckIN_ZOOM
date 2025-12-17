@@ -211,7 +211,7 @@
         
         <!-- Footer -->
         <div class="bg-coffee-50 px-8 py-4 text-center border-t border-coffee-100">
-            <p class="text-[10px] text-coffee-300">© 2024 NxLife Community. All rights reserved. <span class="ml-1 text-coffee-200">v1.6</span></p>
+            <p class="text-[10px] text-coffee-300">© 2024 NxLife Community. All rights reserved. <span id="version-display" class="ml-1 text-coffee-200">v1.7</span></p>
         </div>
     </div>
 
@@ -302,15 +302,15 @@
 
                 if (data.status === 'registered') {
                     // Already Registered
+                    // ตรวจสอบชื่อที่ได้จาก Backend
                     if (shouldOpenZoom) {
                         // Show "Ready to Join" screen AND Try to Auto Launch
                         showReadyToJoin(data.registeredName, userProfile.displayName);
-                        // Auto-launch attempt after 1.5 seconds
                         setTimeout(() => {
                             launchZoom();
                         }, 1500);
                     } else {
-                        // ZOOM=N: Show custom message without zoom button
+                        // ZOOM=N
                         showNoZoomMessage(data.registeredName, userProfile.displayName);
                     }
                 } else {
@@ -385,8 +385,8 @@
 
             dom.successTitle.innerText = "ลงทะเบียนเรียบร้อยแล้ว";
             
-            // Handle name display: Show Registered Name + (Line Name)
-            // If regName is missing (old data), fallback to Line Name
+            // Format: Name (Display Name)
+            // If regName is missing (e.g., backend not updated yet), fallback to Line Name
             const displayNameText = regName ? `${regName} (${lineName})` : lineName;
             
             dom.successMessage.innerHTML = `สวัสดีคุณ <strong>${displayNameText}</strong><br>ระบบกำลังเปิดห้อง ZOOM อัตโนมัติ...`;
@@ -401,7 +401,7 @@
             
             dom.successTitle.innerText = "ลงทะเบียนเรียบร้อยแล้ว";
             
-            // Handle name display
+            // Format: Name (Display Name)
             const displayNameText = regName ? `${regName} (${lineName})` : lineName;
 
             dom.successMessage.innerHTML = `คุณได้ลงทะเบียนในระบบแล้ว ในชื่อ<br><strong class="text-lg text-coffee-700">${displayNameText}</strong><br><br>ไม่จำเป็นต้องลงทะเบียนซ้ำ<br>แล้วพบกันใน ZOOM นะคะ<br>วันศุกร์นี้ ห้องเปิด 1 ทุ่ม 10 นาที`;
