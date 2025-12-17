@@ -183,8 +183,8 @@
                     <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-2">
                         <i class="fa-solid fa-check text-3xl"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-coffee-800">ลงทะเบียนสำเร็จ!</h3>
-                    <p class="text-coffee-600 text-sm">ระบบกำลังเปิดห้อง ZOOM ให้คุณ...</p>
+                    <h3 id="success-title" class="text-xl font-bold text-coffee-800">ลงทะเบียนสำเร็จ!</h3>
+                    <p id="success-message" class="text-coffee-600 text-sm leading-relaxed px-4">ระบบกำลังเปิดห้อง ZOOM ให้คุณ...</p>
                     <a href="#" id="manual-link" class="text-xs text-coffee-400 underline mt-4 hover:text-coffee-600">หากไม่เปลี่ยนหน้าอัตโนมัติ คลิกที่นี่</a>
                 </div>
 
@@ -202,7 +202,7 @@
         
         <!-- Footer -->
         <div class="bg-coffee-50 px-8 py-4 text-center border-t border-coffee-100">
-            <p class="text-[10px] text-coffee-300">© 2024 NxLife Community. All rights reserved.</p>
+            <p class="text-[10px] text-coffee-300">© 2024 NxLife Community. All rights reserved. <span class="ml-1 text-coffee-200">v1.4</span></p>
         </div>
     </div>
 
@@ -216,6 +216,10 @@
 
         // --- GLOBAL VARIABLES ---
         let userProfile = null;
+        
+        // Check URL Parameter for ZOOM=N
+        const urlParams = new URLSearchParams(window.location.search);
+        const shouldOpenZoom = urlParams.get('ZOOM') !== 'N'; // Default is True unless ZOOM=N explicitly
 
         // --- DOM ELEMENTS ---
         const dom = {
@@ -223,6 +227,8 @@
             loadingText: document.getElementById('loading-text'),
             registerState: document.getElementById('register-state'),
             successState: document.getElementById('success-state'),
+            successTitle: document.getElementById('success-title'),
+            successMessage: document.getElementById('success-message'),
             errorState: document.getElementById('error-state'),
             errorMessage: document.getElementById('error-message'),
             form: document.getElementById('checkin-form'),
@@ -265,48 +271,42 @@
         // Function to check if user exists
         async function checkUserStatus(userId) {
             try {
-                // Using no-cors mode requires backend to handle response carefully or use JSONP
-                // Alternatively, standard fetch assuming Backend handles CORS correctly (Preferred)
                 const url = `${CONFIG.GAS_ENDPOINT}?action=check&userId=${userId}`;
                 
-                // Note: Fetching from GAS Exec often requires 'redirect: follow'
                 const response = await fetch(url, {
                     method: 'GET',
                     redirect: 'follow'
                 });
                 
-                // Try parsing as JSON first
                 const text = await response.text();
                 let data;
                 try {
                     data = JSON.parse(text);
                 } catch (e) {
-                    console.warn("Check status returned non-JSON:", text);
-                    
                     // Specific check for the Echo error
                     if (text.includes("action=") || text.includes("userId=")) {
                          showError("ตรวจพบ Google Apps Script เวอร์ชันเก่า กรุณากด Deploy > New Deployment ใน Apps Script อีกครั้ง");
                          return;
                     }
-
-                    // If check fails silently due to CORS or redirect issues, we might want to fallback
-                    // But for now, if it's not JSON, let's assume not registered or error.
-                    // However, safe default is 'show form'.
                     showRegisterForm();
                     return;
                 }
 
                 if (data.status === 'registered') {
-                    // Already Registered -> Go to Zoom
-                    dom.loadingText.innerText = "กำลังเตรียมห้อง ZOOM...";
-                    launchZoom();
+                    // Already Registered
+                    if (shouldOpenZoom) {
+                        dom.loadingText.innerText = "กำลังเตรียมห้อง ZOOM...";
+                        launchZoom();
+                    } else {
+                        // ZOOM=N: Show custom message without opening zoom
+                        showNoZoomMessage(userProfile.displayName);
+                    }
                 } else {
                     // Not Registered -> Show Form
                     showRegisterForm();
                 }
             } catch (error) {
                 console.error("API Error", error);
-                // For development safety, if fetch fails, show form so user is not stuck
                 showRegisterForm(); 
             }
         }
@@ -319,7 +319,6 @@
             setLoadingButton(true);
 
             try {
-                // CHANGE: Use GET method instead of POST to avoid CORS/GAS issues
                 const params = new URLSearchParams();
                 params.append('action', 'register');
                 params.append('userId', userProfile.userId);
@@ -328,23 +327,18 @@
                 params.append('statusMessage', userProfile.statusMessage);
                 params.append('name', fullname); 
                 
-                // Construct URL with params
                 const url = `${CONFIG.GAS_ENDPOINT}?${params.toString()}`;
 
-                // Fetch with GET
                 const response = await fetch(url, {
                     method: 'GET',
                     redirect: 'follow'
                 });
 
                 const text = await response.text();
-                console.log("Server Raw Response:", text); // Debug in console
-
                 let data;
                 try {
                     data = JSON.parse(text);
                 } catch (jsonError) {
-                    // IMPROVED ERROR HANDLING: Check if it looks like an echo
                     if (text.startsWith("action=") || text.includes("userId=")) {
                          throw new Error("Google Apps Script ยังเป็นเวอร์ชันเก่า (ส่ง Text กลับมาแทน JSON)\nกรุณากด Deploy > New Deployment ในหน้า Script แล้วนำ URL ใหม่มาใช้");
                     }
@@ -354,12 +348,17 @@
                 if (data.status === 'success') {
                     dom.registerState.classList.add('hidden');
                     dom.successState.classList.remove('hidden');
-                    dom.manualLink.href = CONFIG.ZOOM_URL;
                     
-                    // Delay slightly for UX before redirect
-                    setTimeout(() => {
-                        launchZoom();
-                    }, 1500);
+                    if (shouldOpenZoom) {
+                        // Normal flow
+                        dom.manualLink.href = CONFIG.ZOOM_URL;
+                        setTimeout(() => {
+                            launchZoom();
+                        }, 1500);
+                    } else {
+                        // ZOOM=N flow for new registration
+                        showNoZoomMessage(fullname); // Use input name for clarity
+                    }
                 } else {
                     throw new Error(data.message || "Server returned status: " + data.status);
                 }
@@ -378,8 +377,33 @@
             dom.registerState.classList.remove('hidden');
         }
 
+        // IMPROVED: launchZoom to handle iOS/LINE internal browser
         function launchZoom() {
-            window.location.href = CONFIG.ZOOM_URL;
+            // Check if running inside LINE
+            if (liff.isInClient()) {
+                // Force open in external browser (Safari/Chrome) to trigger Zoom Deep Link correctly
+                liff.openWindow({
+                    url: CONFIG.ZOOM_URL,
+                    external: true
+                });
+            } else {
+                // Standard browser
+                window.location.href = CONFIG.ZOOM_URL;
+            }
+        }
+        
+        // New function to display message when ZOOM=N
+        function showNoZoomMessage(name) {
+            dom.loadingState.classList.add('hidden');
+            dom.registerState.classList.add('hidden');
+            dom.successState.classList.remove('hidden');
+            
+            // Customize Title and Message
+            dom.successTitle.innerText = "ลงทะเบียนเรียบร้อยแล้ว";
+            dom.successMessage.innerHTML = `คุณได้ลงทะเบียนในระบบแล้ว ในชื่อ <strong>${name}</strong><br>ไม่จำเป็นต้องลงทะเบียนซ้ำ<br><br>แล้วพบกันใน ZOOM นะคะ<br>วันศุกร์นี้ ห้องเปิด 1 ทุ่ม 10 นาที`;
+            
+            // Hide the manual Zoom link since we don't want them to enter yet
+            dom.manualLink.classList.add('hidden');
         }
 
         function showError(msg) {
@@ -402,7 +426,6 @@
         }
 
         // --- START APP ---
-        // Ensure DOM is ready
         document.addEventListener('DOMContentLoaded', main);
 
     </script>
