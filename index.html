@@ -270,9 +270,22 @@
                 // Note: Fetching from GAS Exec often requires 'redirect: follow'
                 const response = await fetch(url, {
                     method: 'GET',
+                    redirect: 'follow'
                 });
                 
-                const data = await response.json();
+                // Try parsing as JSON first
+                const text = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    console.warn("Check status returned non-JSON:", text);
+                    // If check fails silently due to CORS or redirect issues, we might want to fallback
+                    // But for now, if it's not JSON, let's assume not registered or error.
+                    // However, safe default is 'show form'.
+                    showRegisterForm();
+                    return;
+                }
 
                 if (data.status === 'registered') {
                     // Already Registered -> Go to Zoom
@@ -283,8 +296,6 @@
                     showRegisterForm();
                 }
             } catch (error) {
-                // If API fails (e.g. CORS), we might want to fallback to showing form
-                // But strictly, we should alert.
                 console.error("API Error", error);
                 // For development safety, if fetch fails, show form so user is not stuck
                 showRegisterForm(); 
@@ -299,7 +310,7 @@
             setLoadingButton(true);
 
             try {
-                // Prepare Payload using URLSearchParams instead of FormData
+                // Prepare Payload using URLSearchParams
                 // This helps avoid CORS preflight issues with GAS
                 const formData = new URLSearchParams();
                 formData.append('action', 'register');
@@ -312,11 +323,24 @@
                 // POST to GAS
                 const response = await fetch(CONFIG.GAS_ENDPOINT, {
                     method: 'POST',
-                    body: formData // Content-Type will be application/x-www-form-urlencoded
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData,
+                    redirect: 'follow'
                 });
 
-                const data = await response.json();
-                console.log("Server Response:", data); // Debug log
+                // IMPORTANT: Read as text first to debug the "SyntaxError"
+                const text = await response.text();
+                console.log("Server Raw Response:", text); // Debug in console
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (jsonError) {
+                    // This catches the "Unexpected token 'a'..." error
+                    throw new Error("Server response is not valid JSON. Response start with: " + text.substring(0, 30) + "...");
+                }
 
                 if (data.status === 'success') {
                     dom.registerState.classList.add('hidden');
@@ -328,14 +352,12 @@
                         launchZoom();
                     }, 1500);
                 } else {
-                    // Show the actual message from server
-                    throw new Error(data.message || "Server response not success (Unknown Error)");
+                    throw new Error(data.message || "Server returned status: " + data.status);
                 }
 
             } catch (error) {
                 console.error(error);
-                // Alert with specific error message for easier debugging
-                alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล:\n" + error.message + "\n\nกรุณาลองใหม่อีกครั้ง");
+                alert("เกิดข้อผิดพลาด: " + error.message + "\n\nกรุณาลองใหม่อีกครั้ง");
                 setLoadingButton(false);
             }
         }
