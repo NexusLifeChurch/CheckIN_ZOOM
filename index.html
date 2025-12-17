@@ -161,7 +161,9 @@
                             </label>
                             <input type="text" id="fullname" required
                                 class="w-full px-4 py-3 rounded-xl border border-coffee-200 bg-white text-coffee-800 focus:outline-none input-transition"
-                                placeholder="เช่น จอห์น (John) NxLife">
+                                placeholder="เช่น จอห์น (John) NxLife"
+                                oninvalid="this.setCustomValidity('กรุณาใส่ชื่อของท่านก่อน')"
+                                oninput="this.setCustomValidity('')">
                             <p class="text-xs text-coffee-400 mt-2 leading-relaxed">
                                 <i class="fa-solid fa-circle-info mr-1"></i>
                                 กรุณาใช้ <strong>"ชื่อเล่น (ชื่อจริง)"</strong> หรือชื่อที่ทีมงานจำได้ เพื่อลุ้นรับรางวัลและระบุตัวตนได้ถูกต้อง
@@ -310,27 +312,24 @@
             setLoadingButton(true);
 
             try {
-                // Prepare Payload using URLSearchParams
-                // This helps avoid CORS preflight issues with GAS
-                const formData = new URLSearchParams();
-                formData.append('action', 'register');
-                formData.append('userId', userProfile.userId);
-                formData.append('displayName', userProfile.displayName);
-                formData.append('pictureUrl', userProfile.pictureUrl);
-                formData.append('statusMessage', userProfile.statusMessage);
-                formData.append('name', fullname); // User input name
+                // CHANGE: Use GET method instead of POST to avoid CORS/GAS issues
+                const params = new URLSearchParams();
+                params.append('action', 'register');
+                params.append('userId', userProfile.userId);
+                params.append('displayName', userProfile.displayName);
+                params.append('pictureUrl', userProfile.pictureUrl);
+                params.append('statusMessage', userProfile.statusMessage);
+                params.append('name', fullname); 
+                
+                // Construct URL with params
+                const url = `${CONFIG.GAS_ENDPOINT}?${params.toString()}`;
 
-                // POST to GAS
-                const response = await fetch(CONFIG.GAS_ENDPOINT, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: formData,
+                // Fetch with GET
+                const response = await fetch(url, {
+                    method: 'GET',
                     redirect: 'follow'
                 });
 
-                // IMPORTANT: Read as text first to debug the "SyntaxError"
                 const text = await response.text();
                 console.log("Server Raw Response:", text); // Debug in console
 
@@ -338,8 +337,7 @@
                 try {
                     data = JSON.parse(text);
                 } catch (jsonError) {
-                    // This catches the "Unexpected token 'a'..." error
-                    throw new Error("Server response is not valid JSON. Response start with: " + text.substring(0, 30) + "...");
+                    throw new Error("Server response is not valid JSON. Start with: " + text.substring(0, 30));
                 }
 
                 if (data.status === 'success') {
