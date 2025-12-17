@@ -81,6 +81,19 @@
         .btn-coffee:active {
             transform: translateY(0);
         }
+        
+        .btn-outline-coffee {
+            background: transparent;
+            border: 2px solid #6f4e37;
+            color: #6f4e37;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-outline-coffee:hover {
+            background: #6f4e37;
+            color: white;
+            transform: translateY(-2px);
+        }
 
         /* Loading Spinner */
         .spinner {
@@ -187,14 +200,21 @@
                     <h3 id="success-title" class="text-xl font-bold text-coffee-800">ลงทะเบียนสำเร็จ!</h3>
                     <p id="success-message" class="text-coffee-600 text-sm leading-relaxed px-4 mb-4">ระบบพร้อมแล้ว</p>
                     
-                    <!-- Manual Button for iOS Stability + Auto Redirect -->
+                    <!-- Manual Button for iOS Stability + Auto Redirect (For ZOOM=Y) -->
                     <button onclick="launchZoom()" id="manual-zoom-btn" 
-                        class="pulse-btn w-full btn-coffee text-white font-bold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-2 transform transition hover:scale-105">
+                        class="hidden pulse-btn w-full btn-coffee text-white font-bold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-2 transform transition hover:scale-105">
                         <i class="fa-solid fa-video text-xl"></i>
                         <span class="text-lg">กดเพื่อเข้าห้อง ZOOM</span>
                     </button>
                     
-                    <p class="text-[10px] text-coffee-400 mt-3">*ระบบกำลังเปิดห้อง ZOOM อัตโนมัติ หากไม่เปิด กรุณากดปุ่มด้านบน</p>
+                    <!-- Close Button (For ZOOM=N) -->
+                    <button onclick="liff.closeWindow()" id="close-window-btn" 
+                        class="hidden w-full btn-outline-coffee font-bold py-3 px-6 rounded-xl shadow-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                        <span class="text-lg">ปิดหน้าต่าง</span>
+                    </button>
+                    
+                    <p id="footer-msg" class="text-[12px] text-coffee-400 mt-4 font-semibold tracking-wide">Connect&Empower By Nexus Life</p>
                 </div>
 
                 <!-- STATE 4: ERROR (Hidden by default) -->
@@ -211,7 +231,7 @@
         
         <!-- Footer -->
         <div class="bg-coffee-50 px-8 py-4 text-center border-t border-coffee-100">
-            <p class="text-[10px] text-coffee-300">© 2024 NxLife Community. All rights reserved. <span id="version-display" class="ml-1 text-coffee-200">v1.7</span></p>
+            <p class="text-[10px] text-coffee-300">© 2024 NxLife Community. All rights reserved. <span id="version-display" class="ml-1 text-coffee-200">v1.9</span></p>
         </div>
     </div>
 
@@ -239,6 +259,8 @@
             successTitle: document.getElementById('success-title'),
             successMessage: document.getElementById('success-message'),
             manualZoomBtn: document.getElementById('manual-zoom-btn'),
+            closeWindowBtn: document.getElementById('close-window-btn'),
+            footerMsg: document.getElementById('footer-msg'),
             errorState: document.getElementById('error-state'),
             errorMessage: document.getElementById('error-message'),
             form: document.getElementById('checkin-form'),
@@ -306,11 +328,12 @@
                     if (shouldOpenZoom) {
                         // Show "Ready to Join" screen AND Try to Auto Launch
                         showReadyToJoin(data.registeredName, userProfile.displayName);
+                        // Auto-launch attempt after 1.5 seconds
                         setTimeout(() => {
                             launchZoom();
                         }, 1500);
                     } else {
-                        // ZOOM=N
+                        // ZOOM=N: Show custom message with Close button
                         showNoZoomMessage(data.registeredName, userProfile.displayName);
                     }
                 } else {
@@ -381,12 +404,14 @@
             dom.loadingState.classList.add('hidden');
             dom.registerState.classList.add('hidden');
             dom.successState.classList.remove('hidden');
-            dom.manualZoomBtn.classList.remove('hidden'); // Show Button
+            
+            // ZOOM=Y: Show Zoom Button, Hide Close Button
+            dom.manualZoomBtn.classList.remove('hidden'); 
+            dom.closeWindowBtn.classList.add('hidden');
 
             dom.successTitle.innerText = "ลงทะเบียนเรียบร้อยแล้ว";
             
             // Format: Name (Display Name)
-            // If regName is missing (e.g., backend not updated yet), fallback to Line Name
             const displayNameText = regName ? `${regName} (${lineName})` : lineName;
             
             dom.successMessage.innerHTML = `สวัสดีคุณ <strong>${displayNameText}</strong><br>ระบบกำลังเปิดห้อง ZOOM อัตโนมัติ...`;
@@ -397,7 +422,10 @@
             dom.loadingState.classList.add('hidden');
             dom.registerState.classList.add('hidden');
             dom.successState.classList.remove('hidden');
-            dom.manualZoomBtn.classList.add('hidden'); // Hide Button
+            
+            // ZOOM=N: Hide Zoom Button, Show Close Button
+            dom.manualZoomBtn.classList.add('hidden'); 
+            dom.closeWindowBtn.classList.remove('hidden');
             
             dom.successTitle.innerText = "ลงทะเบียนเรียบร้อยแล้ว";
             
@@ -407,8 +435,9 @@
             dom.successMessage.innerHTML = `คุณได้ลงทะเบียนในระบบแล้ว ในชื่อ<br><strong class="text-lg text-coffee-700">${displayNameText}</strong><br><br>ไม่จำเป็นต้องลงทะเบียนซ้ำ<br>แล้วพบกันใน ZOOM นะคะ<br>วันศุกร์นี้ ห้องเปิด 1 ทุ่ม 10 นาที`;
         }
 
-        // --- ZOOM LAUNCHER ---
+        // --- ZOOM LAUNCHER WITH DELAYED CLOSE ---
         function launchZoom() {
+            // 1. Trigger Open Zoom
             if (liff.isInClient()) {
                 liff.openWindow({
                     url: CONFIG.ZOOM_URL,
@@ -416,6 +445,13 @@
                 });
             } else {
                 window.location.href = CONFIG.ZOOM_URL;
+            }
+
+            // 2. Schedule Close Window (5 seconds delay)
+            if (liff.isInClient()) {
+                setTimeout(() => {
+                    liff.closeWindow();
+                }, 5000); // 5000ms = 5 seconds
             }
         }
 
