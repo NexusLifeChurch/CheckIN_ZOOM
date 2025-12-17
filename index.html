@@ -106,13 +106,14 @@
             box-shadow: 0 0 0 3px rgba(111, 78, 55, 0.1);
         }
 
-        /* Hide Scrollbar but allow scrolling */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+        /* Pulse Animation for Button */
+        .pulse-btn {
+            animation: pulse-coffee 2s infinite;
         }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        @keyframes pulse-coffee {
+            0% { box-shadow: 0 0 0 0 rgba(111, 78, 55, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(111, 78, 55, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(111, 78, 55, 0); }
         }
     </style>
 </head>
@@ -179,13 +180,21 @@
                 </div>
 
                 <!-- STATE 3: SUCCESS / REDIRECT (Hidden by default) -->
-                <div id="success-state" class="hidden flex flex-col items-center gap-4 text-center animate-fade-in-up">
+                <div id="success-state" class="hidden flex flex-col items-center gap-4 text-center animate-fade-in-up w-full">
                     <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-2">
                         <i class="fa-solid fa-check text-3xl"></i>
                     </div>
                     <h3 id="success-title" class="text-xl font-bold text-coffee-800">ลงทะเบียนสำเร็จ!</h3>
-                    <p id="success-message" class="text-coffee-600 text-sm leading-relaxed px-4">ระบบกำลังเปิดห้อง ZOOM ให้คุณ...</p>
-                    <a href="#" id="manual-link" class="text-xs text-coffee-400 underline mt-4 hover:text-coffee-600">หากไม่เปลี่ยนหน้าอัตโนมัติ คลิกที่นี่</a>
+                    <p id="success-message" class="text-coffee-600 text-sm leading-relaxed px-4 mb-4">ระบบพร้อมแล้ว</p>
+                    
+                    <!-- Manual Button for iOS Stability -->
+                    <button onclick="launchZoom()" id="manual-zoom-btn" 
+                        class="pulse-btn w-full btn-coffee text-white font-bold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-2 transform transition hover:scale-105">
+                        <i class="fa-solid fa-video text-xl"></i>
+                        <span class="text-lg">กดเพื่อเข้าห้อง ZOOM</span>
+                    </button>
+                    
+                    <p class="text-[10px] text-coffee-400 mt-3">*หากกดแล้วไม่มีอะไรเกิดขึ้น ให้ลองเปิดใน Browser หลัก</p>
                 </div>
 
                 <!-- STATE 4: ERROR (Hidden by default) -->
@@ -202,7 +211,7 @@
         
         <!-- Footer -->
         <div class="bg-coffee-50 px-8 py-4 text-center border-t border-coffee-100">
-            <p class="text-[10px] text-coffee-300">© 2024 NxLife Community. All rights reserved. <span class="ml-1 text-coffee-200">v1.4</span></p>
+            <p class="text-[10px] text-coffee-300">© 2024 NxLife Community. All rights reserved. <span class="ml-1 text-coffee-200">v1.5</span></p>
         </div>
     </div>
 
@@ -229,13 +238,13 @@
             successState: document.getElementById('success-state'),
             successTitle: document.getElementById('success-title'),
             successMessage: document.getElementById('success-message'),
+            manualZoomBtn: document.getElementById('manual-zoom-btn'),
             errorState: document.getElementById('error-state'),
             errorMessage: document.getElementById('error-message'),
             form: document.getElementById('checkin-form'),
             userPic: document.getElementById('user-picture'),
             displayName: document.getElementById('user-display-name'),
-            submitBtn: document.getElementById('submit-btn'),
-            manualLink: document.getElementById('manual-link')
+            submitBtn: document.getElementById('submit-btn')
         };
 
         // --- INITIALIZATION ---
@@ -253,7 +262,7 @@
                 dom.loadingText.innerText = "กำลังดึงข้อมูล Profile...";
                 userProfile = await liff.getProfile();
                 
-                // Populate Profile UI (for later use)
+                // Populate Profile UI
                 dom.userPic.src = userProfile.pictureUrl || "https://ui-avatars.com/api/?name=" + userProfile.displayName;
                 dom.displayName.innerText = userProfile.displayName;
 
@@ -268,24 +277,18 @@
 
         // --- BACKEND API CALLS ---
         
-        // Function to check if user exists
         async function checkUserStatus(userId) {
             try {
                 const url = `${CONFIG.GAS_ENDPOINT}?action=check&userId=${userId}`;
-                
-                const response = await fetch(url, {
-                    method: 'GET',
-                    redirect: 'follow'
-                });
-                
+                const response = await fetch(url, { method: 'GET', redirect: 'follow' });
                 const text = await response.text();
+                
                 let data;
                 try {
                     data = JSON.parse(text);
                 } catch (e) {
-                    // Specific check for the Echo error
                     if (text.includes("action=") || text.includes("userId=")) {
-                         showError("ตรวจพบ Google Apps Script เวอร์ชันเก่า กรุณากด Deploy > New Deployment ใน Apps Script อีกครั้ง");
+                         showError("Google Apps Script เวอร์ชันเก่า: กรุณา Deploy ใหม่");
                          return;
                     }
                     showRegisterForm();
@@ -295,11 +298,11 @@
                 if (data.status === 'registered') {
                     // Already Registered
                     if (shouldOpenZoom) {
-                        dom.loadingText.innerText = "กำลังเตรียมห้อง ZOOM...";
-                        launchZoom();
+                        // Show "Ready to Join" screen with BUTTON (Fixes iPhone)
+                        showReadyToJoin(data.registeredName, userProfile.displayName);
                     } else {
-                        // ZOOM=N: Show custom message without opening zoom
-                        showNoZoomMessage(userProfile.displayName);
+                        // ZOOM=N: Show custom message without zoom button
+                        showNoZoomMessage(data.registeredName, userProfile.displayName);
                     }
                 } else {
                     // Not Registered -> Show Form
@@ -311,11 +314,9 @@
             }
         }
 
-        // Function to register new user
         async function handleRegister(e) {
             e.preventDefault();
             const fullname = document.getElementById('fullname').value;
-            
             setLoadingButton(true);
 
             try {
@@ -328,82 +329,81 @@
                 params.append('name', fullname); 
                 
                 const url = `${CONFIG.GAS_ENDPOINT}?${params.toString()}`;
-
-                const response = await fetch(url, {
-                    method: 'GET',
-                    redirect: 'follow'
-                });
-
+                const response = await fetch(url, { method: 'GET', redirect: 'follow' });
                 const text = await response.text();
+                
                 let data;
                 try {
                     data = JSON.parse(text);
                 } catch (jsonError) {
-                    if (text.startsWith("action=") || text.includes("userId=")) {
-                         throw new Error("Google Apps Script ยังเป็นเวอร์ชันเก่า (ส่ง Text กลับมาแทน JSON)\nกรุณากด Deploy > New Deployment ในหน้า Script แล้วนำ URL ใหม่มาใช้");
-                    }
-                    throw new Error("Server response is not valid JSON. Start with: " + text.substring(0, 30));
+                    throw new Error("Invalid Server Response");
                 }
 
                 if (data.status === 'success') {
-                    dom.registerState.classList.add('hidden');
-                    dom.successState.classList.remove('hidden');
-                    
                     if (shouldOpenZoom) {
-                        // Normal flow
-                        dom.manualLink.href = CONFIG.ZOOM_URL;
-                        setTimeout(() => {
-                            launchZoom();
-                        }, 1500);
+                        // Show "Ready to Join" screen with BUTTON
+                        showReadyToJoin(fullname, userProfile.displayName);
                     } else {
-                        // ZOOM=N flow for new registration
-                        showNoZoomMessage(fullname); // Use input name for clarity
+                        // ZOOM=N
+                        showNoZoomMessage(fullname, userProfile.displayName);
                     }
                 } else {
-                    throw new Error(data.message || "Server returned status: " + data.status);
+                    throw new Error(data.message || "Status: " + data.status);
                 }
 
             } catch (error) {
-                console.error(error);
-                alert("เกิดข้อผิดพลาด: " + error.message + "\n\nกรุณาลองใหม่อีกครั้ง");
+                alert("เกิดข้อผิดพลาด: " + error.message);
                 setLoadingButton(false);
             }
         }
 
-        // --- UTILITIES ---
+        // --- UI STATES ---
 
         function showRegisterForm() {
             dom.loadingState.classList.add('hidden');
             dom.registerState.classList.remove('hidden');
         }
 
-        // IMPROVED: launchZoom to handle iOS/LINE internal browser
+        // New State: Show button to join (Fixes iOS auto-redirect block)
+        function showReadyToJoin(regName, lineName) {
+            dom.loadingState.classList.add('hidden');
+            dom.registerState.classList.add('hidden');
+            dom.successState.classList.remove('hidden');
+            dom.manualZoomBtn.classList.remove('hidden'); // Show Button
+
+            dom.successTitle.innerText = "ลงทะเบียนเรียบร้อยแล้ว";
+            
+            // Handle name display (regName might be undefined if from CheckStatus without backend update)
+            const displayNameText = regName ? `${regName} (${lineName})` : lineName;
+            
+            dom.successMessage.innerHTML = `สวัสดีคุณ <strong>${displayNameText}</strong><br>กดปุ่มด้านล่างเพื่อเข้าห้อง ZOOM ได้เลยค่ะ`;
+        }
+
+        // ZOOM=N State
+        function showNoZoomMessage(regName, lineName) {
+            dom.loadingState.classList.add('hidden');
+            dom.registerState.classList.add('hidden');
+            dom.successState.classList.remove('hidden');
+            dom.manualZoomBtn.classList.add('hidden'); // Hide Button
+            
+            dom.successTitle.innerText = "ลงทะเบียนเรียบร้อยแล้ว";
+            
+            // Handle name display
+            const displayNameText = regName ? `${regName} (${lineName})` : lineName;
+
+            dom.successMessage.innerHTML = `คุณได้ลงทะเบียนในระบบแล้ว ในชื่อ<br><strong class="text-lg text-coffee-700">${displayNameText}</strong><br><br>ไม่จำเป็นต้องลงทะเบียนซ้ำ<br>แล้วพบกันใน ZOOM นะคะ<br>วันศุกร์นี้ ห้องเปิด 1 ทุ่ม 10 นาที`;
+        }
+
+        // --- ZOOM LAUNCHER ---
         function launchZoom() {
-            // Check if running inside LINE
             if (liff.isInClient()) {
-                // Force open in external browser (Safari/Chrome) to trigger Zoom Deep Link correctly
                 liff.openWindow({
                     url: CONFIG.ZOOM_URL,
                     external: true
                 });
             } else {
-                // Standard browser
                 window.location.href = CONFIG.ZOOM_URL;
             }
-        }
-        
-        // New function to display message when ZOOM=N
-        function showNoZoomMessage(name) {
-            dom.loadingState.classList.add('hidden');
-            dom.registerState.classList.add('hidden');
-            dom.successState.classList.remove('hidden');
-            
-            // Customize Title and Message
-            dom.successTitle.innerText = "ลงทะเบียนเรียบร้อยแล้ว";
-            dom.successMessage.innerHTML = `คุณได้ลงทะเบียนในระบบแล้ว ในชื่อ <strong>${name}</strong><br>ไม่จำเป็นต้องลงทะเบียนซ้ำ<br><br>แล้วพบกันใน ZOOM นะคะ<br>วันศุกร์นี้ ห้องเปิด 1 ทุ่ม 10 นาที`;
-            
-            // Hide the manual Zoom link since we don't want them to enter yet
-            dom.manualLink.classList.add('hidden');
         }
 
         function showError(msg) {
@@ -425,7 +425,6 @@
             }
         }
 
-        // --- START APP ---
         document.addEventListener('DOMContentLoaded', main);
 
     </script>
