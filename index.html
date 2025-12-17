@@ -282,6 +282,13 @@
                     data = JSON.parse(text);
                 } catch (e) {
                     console.warn("Check status returned non-JSON:", text);
+                    
+                    // Specific check for the Echo error
+                    if (text.includes("action=") || text.includes("userId=")) {
+                         showError("ตรวจพบ Google Apps Script เวอร์ชันเก่า กรุณากด Deploy > New Deployment ใน Apps Script อีกครั้ง");
+                         return;
+                    }
+
                     // If check fails silently due to CORS or redirect issues, we might want to fallback
                     // But for now, if it's not JSON, let's assume not registered or error.
                     // However, safe default is 'show form'.
@@ -337,6 +344,10 @@
                 try {
                     data = JSON.parse(text);
                 } catch (jsonError) {
+                    // IMPROVED ERROR HANDLING: Check if it looks like an echo
+                    if (text.startsWith("action=") || text.includes("userId=")) {
+                         throw new Error("Google Apps Script ยังเป็นเวอร์ชันเก่า (ส่ง Text กลับมาแทน JSON)\nกรุณากด Deploy > New Deployment ในหน้า Script แล้วนำ URL ใหม่มาใช้");
+                    }
                     throw new Error("Server response is not valid JSON. Start with: " + text.substring(0, 30));
                 }
 
