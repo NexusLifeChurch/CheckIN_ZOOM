@@ -187,14 +187,14 @@
                     <h3 id="success-title" class="text-xl font-bold text-coffee-800">ลงทะเบียนสำเร็จ!</h3>
                     <p id="success-message" class="text-coffee-600 text-sm leading-relaxed px-4 mb-4">ระบบพร้อมแล้ว</p>
                     
-                    <!-- Manual Button for iOS Stability -->
+                    <!-- Manual Button for iOS Stability + Auto Redirect -->
                     <button onclick="launchZoom()" id="manual-zoom-btn" 
                         class="pulse-btn w-full btn-coffee text-white font-bold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-2 transform transition hover:scale-105">
                         <i class="fa-solid fa-video text-xl"></i>
                         <span class="text-lg">กดเพื่อเข้าห้อง ZOOM</span>
                     </button>
                     
-                    <p class="text-[10px] text-coffee-400 mt-3">*หากกดแล้วไม่มีอะไรเกิดขึ้น ให้ลองเปิดใน Browser หลัก</p>
+                    <p class="text-[10px] text-coffee-400 mt-3">*ระบบกำลังเปิดห้อง ZOOM อัตโนมัติ หากไม่เปิด กรุณากดปุ่มด้านบน</p>
                 </div>
 
                 <!-- STATE 4: ERROR (Hidden by default) -->
@@ -211,7 +211,7 @@
         
         <!-- Footer -->
         <div class="bg-coffee-50 px-8 py-4 text-center border-t border-coffee-100">
-            <p class="text-[10px] text-coffee-300">© 2024 NxLife Community. All rights reserved. <span class="ml-1 text-coffee-200">v1.5</span></p>
+            <p class="text-[10px] text-coffee-300">© 2024 NxLife Community. All rights reserved. <span class="ml-1 text-coffee-200">v1.6</span></p>
         </div>
     </div>
 
@@ -249,6 +249,11 @@
 
         // --- INITIALIZATION ---
         async function main() {
+            // Adjust Button Text based on Mode (ZOOM=N or Y)
+            if (!shouldOpenZoom) {
+                dom.submitBtn.innerHTML = `<span>กด ลงทะเบียน</span><i class="fa-solid fa-user-plus"></i>`;
+            }
+
             try {
                 // 1. Init LIFF
                 await liff.init({ liffId: CONFIG.LIFF_ID });
@@ -298,8 +303,12 @@
                 if (data.status === 'registered') {
                     // Already Registered
                     if (shouldOpenZoom) {
-                        // Show "Ready to Join" screen with BUTTON (Fixes iPhone)
+                        // Show "Ready to Join" screen AND Try to Auto Launch
                         showReadyToJoin(data.registeredName, userProfile.displayName);
+                        // Auto-launch attempt after 1.5 seconds
+                        setTimeout(() => {
+                            launchZoom();
+                        }, 1500);
                     } else {
                         // ZOOM=N: Show custom message without zoom button
                         showNoZoomMessage(data.registeredName, userProfile.displayName);
@@ -341,8 +350,11 @@
 
                 if (data.status === 'success') {
                     if (shouldOpenZoom) {
-                        // Show "Ready to Join" screen with BUTTON
+                        // Show "Ready to Join" screen AND Try to Auto Launch
                         showReadyToJoin(fullname, userProfile.displayName);
+                        setTimeout(() => {
+                            launchZoom();
+                        }, 1500);
                     } else {
                         // ZOOM=N
                         showNoZoomMessage(fullname, userProfile.displayName);
@@ -373,10 +385,11 @@
 
             dom.successTitle.innerText = "ลงทะเบียนเรียบร้อยแล้ว";
             
-            // Handle name display (regName might be undefined if from CheckStatus without backend update)
+            // Handle name display: Show Registered Name + (Line Name)
+            // If regName is missing (old data), fallback to Line Name
             const displayNameText = regName ? `${regName} (${lineName})` : lineName;
             
-            dom.successMessage.innerHTML = `สวัสดีคุณ <strong>${displayNameText}</strong><br>กดปุ่มด้านล่างเพื่อเข้าห้อง ZOOM ได้เลยค่ะ`;
+            dom.successMessage.innerHTML = `สวัสดีคุณ <strong>${displayNameText}</strong><br>ระบบกำลังเปิดห้อง ZOOM อัตโนมัติ...`;
         }
 
         // ZOOM=N State
@@ -419,7 +432,13 @@
                 dom.submitBtn.disabled = true;
                 dom.submitBtn.classList.add('opacity-75');
             } else {
-                dom.submitBtn.innerHTML = `<span>ยืนยันและเข้า ZOOM</span><i class="fa-solid fa-arrow-right"></i>`;
+                // Restore text based on mode
+                if (shouldOpenZoom) {
+                    dom.submitBtn.innerHTML = `<span>ยืนยันและเข้า ZOOM</span><i class="fa-solid fa-arrow-right"></i>`;
+                } else {
+                    dom.submitBtn.innerHTML = `<span>กด ลงทะเบียน</span><i class="fa-solid fa-user-plus"></i>`;
+                }
+                
                 dom.submitBtn.disabled = false;
                 dom.submitBtn.classList.remove('opacity-75');
             }
